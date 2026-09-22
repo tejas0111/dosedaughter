@@ -1,0 +1,46 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'DejaVu Sans',sans-serif; }
+  body { width:1600px; height:840px; background:#081120; display:flex; align-items:center; justify-content:center; }
+  .stage { position:relative; width:1480px; height:700px; }
+  h1 { color:#e8f1f8; font-size:38px; text-align:center; margin-bottom:44px; }
+  h1 .hl { color:#5eead4; }
+  .flow { display:flex; align-items:center; gap:0; }
+  .node { background:#0e1c30; border:1.5px solid #274763; border-radius:16px; padding:24px 26px; width:300px; }
+  .node.user { width:200px; border-color:#3b5a7a; }
+  .node.stop { background:#2a0d0d; border-color:#dc2626; width:280px; }
+  .node.walrus { background:#0c2620; border-color:#14b8a6; }
+  .num { font-size:15px; letter-spacing:2.5px; color:#67a5c8; font-weight:bold; margin-bottom:10px; }
+  .stop .num { color:#fca5a5; }
+  .walrus .num { color:#5eead4; }
+  .nt { font-size:23px; font-weight:800; color:#eaf3fb; margin-bottom:8px; }
+  .nd { font-size:17.5px; line-height:1.5; color:#93aec5; }
+  .nd code { font-family:'DejaVu Sans Mono',monospace; font-size:15.5px; color:#7dd3fc; }
+  .walrus .nd code { color:#5eead4; }
+  .arr { flex:1; text-align:center; color:#3f6787; font-size:34px; padding:0 10px; }
+  .arr span { display:block; font-size:14.5px; color:#557a97; font-family:'DejaVu Sans Mono',monospace; margin-top:4px; }
+  .lane { position:absolute; left:0; right:0; bottom:36px; display:flex; gap:26px; align-items:center; }
+  .lane .box { flex:1; background:rgba(255,255,255,.03); border:1px dashed #2c4a66; border-radius:14px; padding:18px 24px; font-size:18.5px; color:#9db4c8; line-height:1.55; }
+  .lane .box b { color:#dbeafe; }
+  .lane .walruschip { flex:1.25; background:rgba(20,184,166,.08); border:1px dashed rgba(45,212,191,.6); border-radius:14px; padding:18px 24px; font-size:18.5px; color:#b6e8dd; line-height:1.55; }
+  .lane .walruschip b { color:#5eead4; }
+</style></head><body>
+<div class="stage">
+  <h1>The loop that makes it <span class="hl">remember</span> — every message, same order, every time</h1>
+  <div class="flow">
+    <div class="node user"><div class="num">IN</div><div class="nt">Caregiver msg</div><div class="nd">"Can she take Advil?"</div></div>
+    <div class="arr">→<span>namespace<br>user-&lt;id&gt;</span></div>
+    <div class="node walrus"><div class="num">1 · RECALL</div><div class="nt">Walrus Memory</div><div class="nd">top-5 facts · distance &lt; 0.7 · <code>recallRelevant()</code></div></div>
+    <div class="arr">→<span>facts +<br>distances</span></div>
+    <div class="node stop"><div class="num">2 · CODED GUARD</div><div class="nt">STOP block</div><div class="nd"><code>findConflict()</code> brand→generic map · <b>cites blob id</b></div></div>
+    <div class="arr">→<span>only if<br>no conflict</span></div>
+    <div class="node"><div class="num">3 · GENERATE</div><div class="nt">LLM w/ memory</div><div class="nd">facts injected in system prompt · Gemini 2.5 Flash</div></div>
+    <div class="arr">→<span>write gate<br><code>shouldRemember()</code></span></div>
+    <div class="node walrus"><div class="num">4 · SAVE</div><div class="nt">New blob</div><div class="nd">durable facts only · questions never saved · <code>rememberAndWait()</code></div></div>
+  </div>
+  <div class="lane">
+    <div class="box"><b>Guard fires before the model.</b> Delete the LLM key and the allergy block still fires — deterministically, from recalled memory alone.</div>
+    <div class="box"><b>Recall before generate.</b> Same model + empty memory = generic answer. Same model + recalled facts = personalized answer. Memory is load-bearing, proven by ablation.</div>
+    <div class="walruschip"><b>Every write lands on Walrus Mainnet</b> as a ≤500-byte blob — each one verifiable on walruscan.com, outliving the server, the session and the demo. 13 blobs live today.</div>
+  </div>
+</div>
+</body></html>

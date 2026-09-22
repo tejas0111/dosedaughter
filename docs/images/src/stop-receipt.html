@@ -1,0 +1,40 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'DejaVu Sans Mono',monospace; }
+  body { width:1400px; height:760px; background:#05080f; display:flex; align-items:center; justify-content:center; }
+  .term { width:1240px; background:#0b1220; border:1px solid #1e3a5f; border-radius:16px; box-shadow:0 30px 90px rgba(0,0,0,.6); overflow:hidden; }
+  .bar { background:#101d31; padding:16px 22px; display:flex; align-items:center; gap:10px; border-bottom:1px solid #1e3a5f; }
+  .dot { width:15px; height:15px; border-radius:50%; }
+  .title { margin-left:14px; color:#64809c; font-size:19px; font-family:'DejaVu Sans',sans-serif; }
+  .body { padding:36px 42px; font-size:25px; line-height:1.75; }
+  .you { color:#7dd3fc; }
+  .you::before { content:"you › "; color:#475f7b; }
+  .guard { color:#fecaca; }
+  .guard .stop { display:inline-block; background:#dc2626; color:#fff; font-weight:bold; padding:2px 14px; border-radius:8px; margin-right:10px; }
+  .fact { color:#e2e8f0; }
+  .blobline { color:#5eead4; font-size:21px; margin-top:8px; }
+  .verify { color:#67e8f9; font-size:21px; text-decoration:underline; text-underline-offset:4px; }
+  .tags { display:flex; gap:14px; margin-top:34px; }
+  .tag { font-family:'DejaVu Sans',sans-serif; font-size:19px; padding:10px 18px; border-radius:999px; border:1px solid; }
+  .t1 { color:#fbbf24; border-color:rgba(251,191,36,.5); background:rgba(251,191,36,.07); }
+  .t2 { color:#5eead4; border-color:rgba(94,234,212,.5); background:rgba(94,234,212,.07); }
+  .t3 { color:#93c5fd; border-color:rgba(147,197,253,.5); background:rgba(147,197,253,.07); }
+</style></head><body>
+<div class="term">
+  <div class="bar">
+    <div class="dot" style="background:#ef4444"></div><div class="dot" style="background:#f59e0b"></div><div class="dot" style="background:#10b981"></div>
+    <div class="title">DoseDaughter — brand-name allergy trap · Walrus Mainnet</div>
+  </div>
+  <div class="body">
+    <div class="you">Can she take Advil for her headache?</div>
+    <div class="guard" style="margin-top:26px"><span class="stop">STOP</span>do not give ibuprofen.</div>
+    <div class="fact">Recalled allergy: "User demo-mom: allergic to ibuprofen — causes rash (told Apr 2)"</div>
+    <div class="blobline">blob _7oVBL39o-pYqcQno30vZrIFHDj-ZvBJX9okIDKciMg</div>
+    <div class="verify">verify → walruscan.com/mainnet/blob/_7oVBL39o-pYqcQno30vZrIFHDj-ZvBJX9okIDKciMg</div>
+    <div class="tags">
+      <div class="tag t1">"Advil" appears in NO stored fact — brand→generic map</div>
+      <div class="tag t2">deterministic · fires BEFORE the LLM</div>
+      <div class="tag t3">works with the LLM key deleted</div>
+    </div>
+  </div>
+</div>
+</body></html>

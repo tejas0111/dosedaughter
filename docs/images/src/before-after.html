@@ -1,0 +1,59 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'DejaVu Sans',sans-serif; }
+  body { width:1500px; height:880px; background:linear-gradient(160deg,#081120,#0d2137); display:flex; align-items:center; justify-content:center; }
+  .wrap { width:1380px; }
+  h1 { color:#e8f1f8; font-size:44px; text-align:center; margin-bottom:8px; }
+  .sub { color:#7d97ae; font-size:22px; text-align:center; margin-bottom:36px; }
+  .cols { display:flex; gap:28px; }
+  .col { flex:1; border-radius:18px; padding:30px 34px; }
+  .day1 { background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.12); }
+  .day7 { background:linear-gradient(160deg,rgba(20,184,166,.13),rgba(20,184,166,.05)); border:1px solid rgba(45,212,191,.55); }
+  .head { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:22px; }
+  .d { font-size:30px; font-weight:800; color:#dbeafe; }
+  .day7 .d { color:#5eead4; }
+  .tag { font-size:18px; color:#8aa3b8; }
+  .row { margin:20px 0; }
+  .lbl { display:flex; justify-content:space-between; font-size:20px; color:#a9bfd2; margin-bottom:9px; }
+  .lbl b { color:#e6f0f8; font-weight:600; }
+  .track { height:16px; border-radius:999px; background:rgba(255,255,255,.08); overflow:hidden; }
+  .fill { height:100%; border-radius:999px; }
+  .f0 { width:4%;  background:#64748b; }
+  .f1 { width:38%; background:#38bdf8; }
+  .f2 { width:100%; background:linear-gradient(90deg,#14b8a6,#2dd4bf); }
+  .f3 { width:8%;  background:#64748b; }
+  .f4 { width:100%; background:linear-gradient(90deg,#0ea5e9,#38bdf8); }
+  .say { margin-top:26px; border-radius:12px; padding:18px 20px; font-size:20.5px; line-height:1.55; }
+  .s1 { background:rgba(148,163,184,.10); color:#c3d2e0; border:1px solid rgba(148,163,184,.25); }
+  .s2 { background:rgba(16,185,129,.10); color:#d1fae5; border:1px solid rgba(52,211,153,.4); }
+  .mono { font-family:'DejaVu Sans Mono',monospace; font-size:17px; color:#5eead4; }
+  .foot { margin-top:34px; display:flex; justify-content:center; gap:18px; }
+  .chip { font-size:19px; color:#9fb8cc; border:1px solid rgba(255,255,255,.16); border-radius:999px; padding:10px 20px; background:rgba(255,255,255,.05); }
+  .chip b { color:#5eead4; }
+</style></head><body>
+<div class="wrap">
+  <h1>Same question, one week apart — the only difference is memory</h1>
+  <div class="sub">Q: "Can she take ibuprofen for her headache?" · identical model (Gemini 2.5 Flash), identical prompt template, identical temperature</div>
+  <div class="cols">
+    <div class="col day1">
+      <div class="head"><span class="d">DAY 1</span><span class="tag">0 blobs · empty namespace</span></div>
+      <div class="row"><div class="lbl"><span>Memories on Walrus</span><b>0</b></div><div class="track"><div class="fill f0"></div></div></div>
+      <div class="row"><div class="lbl"><span>Facts recalled (top-5, d&lt;0.7)</span><b>0 / 5</b></div><div class="track"><div class="fill f3"></div></div></div>
+      <div class="row"><div class="lbl"><span>Allergy trap blocked</span><b>0 / 2</b> (ibuprofen + Advil)</div><div class="track"><div class="fill f3"></div></div></div>
+      <div class="say s1">"Common options for headaches include ibuprofen or acetaminophen. Confirm with your doctor what's appropriate for her."</div>
+    </div>
+    <div class="col day7">
+      <div class="head"><span class="d">DAY 7</span><span class="tag">13 blobs on Walrus Mainnet</span></div>
+      <div class="row"><div class="lbl"><span>Memories on Walrus</span><b>13</b></div><div class="track"><div class="fill f2"></div></div></div>
+      <div class="row"><div class="lbl"><span>Facts recalled (top-5, d&lt;0.7)</span><b>5 / 5</b> · top hit d=0.54</div><div class="track"><div class="fill f4"></div></div></div>
+      <div class="row"><div class="lbl"><span>Allergy trap blocked</span><b>2 / 2</b> · incl. brand name</div><div class="track"><div class="fill f2"></div></div></div>
+      <div class="say s2">"STOP — do not give ibuprofen. Recalled allergy: '…causes rash (told Apr 2)'<br><span class="mono">blob _7oVBL39o-pYqc… ✓ walruscan</span>"</div>
+    </div>
+  </div>
+  <div class="foot">
+    <div class="chip">Every fact ≤500 bytes = <b>1 blob</b></div>
+    <div class="chip">Recall runs <b>before</b> generation</div>
+    <div class="chip">Question itself never saved (<b>write gate</b>)</div>
+    <div class="chip">Receipts page: <b>/memory?user=demo-mom</b></div>
+  </div>
+</div>
+</body></html>

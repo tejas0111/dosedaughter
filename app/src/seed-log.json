@@ -1,0 +1,68 @@
+{
+  "at": "2026-09-21T12:33:07.193Z",
+  "userId": "demo-mom",
+  "namespace": "user-demo-mom",
+  "results": [
+    {
+      "blob_id": "JbCdbC3Hx85f5Ddg0H5bkxdjeTbHGrmWVgawEggKRyo",
+      "status": "skipped-existing",
+      "text": "User demo-mom: takes Metformin 500mg at 8pm after food"
+    },
+    {
+      "blob_id": "GZJ36Lu-ajlMwjPYlkYVhy5pteHEF2uZeEbEleOdaZI",
+      "status": "skipped-existing",
+      "text": "User demo-mom: takes Amlodipine 5mg at 8am with water"
+    },
+    {
+      "blob_id": "_7oVBL39o-pYqcQno30vZrIFHDj-ZvBJX9okIDKciMg",
+      "status": "skipped-existing",
+      "text": "User demo-mom: allergic to ibuprofen — causes rash (told Apr 2)"
+    },
+    {
+      "blob_id": "Yn6YeYkoajbXs2jMA1JnCQfSIgsv2yg0j-ihMQ7ETm4",
+      "status": "done",
+      "text": "User demo-mom: routine — dinner at 7:30pm, bedtime 10pm"
+    },
+    {
+      "blob_id": "HXrwMUUoz_WiNunT_zZlFpFdntiAM3ActXNW-FEHXVI",
+      "status": "done",
+      "text": "User demo-mom: daughter Priya manages weekend doses"
+    },
+    {
+      "blob_id": "hDEkeRxQHguru8H3GQcxThSoiKe7Jo0n4vSgUePB0g8",
+      "status": "done",
+      "text": "User demo-mom: skipped Metformin last Tue when fasting — remind gently"
+    },
+    {
+      "blob_id": "wWsqagp6W0aPDhov2zNfuxRqULT-juGB9IJbbZALNs0",
+      "status": "done",
+      "text": "User demo-mom: doctor Dr. Rao, next visit first week of month, bring sugar log"
+    },
+    {
+      "blob_id": "_heSWDvuwj-678Y8Xop5I9BZvNCO7fClAr0uh_Bw0hA",
+      "status": "done",
+      "text": "User demo-mom: prefers Hindi + short replies, morning reminder at 7:45am"
+    },
+    {
+      "blob_id": "AH90tbLwvYddDfuQE76PHcJO6rDaTHUh0aUn-hehNS4",
+      "status": "done",
+      "text": "User demo-mom: blood sugar fasting target 90-110, log nightly"
+    },
+    {
+      "blob_id": "ZSvX8qmyTJfCrmYTpXr6IW5zLvCX_zzuVdvCF1DMt4k",
+      "status": "done",
+      "text": "User demo-mom: emergency contact son Arjun, call if dose missed twice"
+    },
+    {
+      "blob_id": "ASjyM1NW67shUiv5mlHNtHkNulElU-QrfAuc2vHx0Gw",
+      "status": "done",
+      "text": "User demo-mom: pharmacy Sharma Medical, refills on 25th"
+    },
+    {
+      "blob_id": "uzONelynl-FNOoACkP5NszuaV-e8TeEQ46EOIL1PtTg",
+      "status": "done",
+      "text": "User demo-mom: dislikes phone calls — WhatsApp text only"
+    }
+  ],
+  "probeCount": 13
+}

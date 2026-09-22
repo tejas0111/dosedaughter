@@ -1,0 +1,12 @@
+# --- secrets & local state ---
+.env
+app/.env
+app/.local-memory.json
+*.log
+.DS_Store
+
+# --- private working notes (never publish) ---
+private/
+
+# --- node ---
+node_modules/

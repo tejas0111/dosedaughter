@@ -1,0 +1,42 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'DejaVu Sans',sans-serif; }
+  body { width:1600px; height:800px; background:linear-gradient(135deg,#081120 0%,#0d2137 55%,#0e3a4a 100%); color:#e8f1f8; overflow:hidden; position:relative; }
+  .grid { position:absolute; inset:0; background-image:linear-gradient(rgba(93,213,230,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(93,213,230,.05) 1px,transparent 1px); background-size:44px 44px; }
+  .glow { position:absolute; width:700px; height:700px; border-radius:50%; background:radial-gradient(circle,rgba(45,212,191,.14),transparent 65%); top:-200px; right:-120px; }
+  .glow2 { position:absolute; width:600px; height:600px; border-radius:50%; background:radial-gradient(circle,rgba(56,130,246,.10),transparent 65%); bottom:-250px; left:-150px; }
+  .wrap { position:absolute; inset:0; padding:70px 80px; display:flex; flex-direction:column; }
+  .kicker { display:flex; align-items:center; gap:14px; margin-bottom:26px; }
+  .pill { border:1px solid rgba(93,213,230,.45); color:#67e8f9; font-size:22px; letter-spacing:2.5px; padding:9px 22px; border-radius:999px; font-weight:bold; }
+  .pill.solid { background:#14b8a6; border-color:#14b8a6; color:#04211d; }
+  h1 { font-size:74px; line-height:1.12; font-weight:800; max-width:940px; letter-spacing:-1px; }
+  h1 .hl { color:#5eead4; }
+  .sub { font-size:29px; color:#9fb8cc; margin-top:24px; max-width:900px; line-height:1.45; }
+  .sub b { color:#dbeafe; font-weight:600; }
+  .badges { margin-top:auto; display:flex; gap:16px; }
+  .badge { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.14); border-radius:12px; padding:14px 22px; font-size:21px; color:#c9d9e8; }
+  .badge b { color:#5eead4; font-size:24px; }
+  .chat { position:absolute; right:70px; top:120px; width:480px; }
+  .bub { border-radius:16px; padding:20px 24px; font-size:22px; line-height:1.5; margin-bottom:18px; max-width:430px; box-shadow:0 12px 40px rgba(0,0,0,.35); }
+  .q { background:rgba(255,255,255,.09); border:1px solid rgba(255,255,255,.15); color:#d7e5f2; border-bottom-left-radius:4px; }
+  .a { background:linear-gradient(135deg,#0f766e,#115e59); border:1px solid #2dd4bf; color:#ecfdf5; border-bottom-right-radius:4px; margin-left:50px; }
+  .a .blob { display:block; margin-top:10px; font-family:'DejaVu Sans Mono',monospace; font-size:15px; color:#99f6e4; opacity:.9; }
+  .stamp { position:absolute; right:84px; bottom:150px; transform:rotate(-4deg); border:3px solid #f59e0b; color:#fbbf24; font-weight:800; font-size:24px; padding:12px 22px; border-radius:10px; letter-spacing:1px; background:rgba(245,158,11,.08); }
+</style></head><body>
+<div class="grid"></div><div class="glow"></div><div class="glow2"></div>
+<div class="wrap">
+  <div class="kicker"><span class="pill solid">WALRUS SESSIONS 8</span><span class="pill">CHATBOTS THAT REMEMBER</span></div>
+  <h1>The Week My Mom <span class="hl">Stopped Repeating Herself</span></h1>
+  <div class="sub">A caregiver chatbot that <b>never re-asks a dose</b> — meds, routines and allergies remembered as <b>verifiable blobs on Walrus Mainnet</b>, recalled before the model speaks.</div>
+  <div class="badges">
+    <div class="badge"><b>13</b> mainnet blobs</div>
+    <div class="badge"><b>d=0.54</b> top-hit recall</div>
+    <div class="badge"><b>STOP</b> guard · no LLM needed</div>
+    <div class="badge"><b>41/41</b> tests</div>
+  </div>
+</div>
+<div class="chat">
+  <div class="bub q">What meds does mom take?</div>
+  <div class="bub a">Metformin 500mg at 8pm after food · Amlodipine 5mg at 8am with water.<span class="blob">blob JbCdbC3Hx85f5D… · walruscan.com ✓</span></div>
+</div>
+<div class="stamp">DOSEDAUGHTER 🦭💊</div>
+</body></html>
