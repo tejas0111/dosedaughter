@@ -1,6 +1,6 @@
 # Deploy (Vercel) — 5 minutes
 
-1. `cd walrus-session8/app && vercel --prod` (or import the repo in Vercel dashboard, root = `walrus-session8/app`).
+1. From the repo root: `cd app && vercel --prod` (or import the repo in the Vercel dashboard with Root Directory = `app`).
 2. Env vars in Vercel dashboard (ALL, no defaults for secrets):
    - `VERCEL=1` (disables the direct listener; requests route via `api/index.js`)
    - `MEMWAL_MODE=mainnet`, `MEMWAL_ACCOUNT_ID`, `MEMWAL_PRIVATE_KEY` (fresh Sessions wallet)

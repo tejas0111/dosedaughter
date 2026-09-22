@@ -1,4 +1,4 @@
-// Local stand-in for MemWal — SAME interface, zero network, for tonight's end-to-end demo.
+// Local stand-in for MemWal — SAME interface, zero network, for offline development and demos.
 // Mainnet path (memory.js) is untouched and used when MEMWAL_MODE=mainnet + keys present.
 // Local blobs: `local-<sha1>` persisted to .local-memory.json (gitignored). NEVER presented as Mainnet.
 // Scoring: normalized word-overlap (light stemming + synonym canonicalization so it

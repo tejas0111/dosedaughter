@@ -4,7 +4,7 @@ Date (UTC): 2026-09-20T23:23:31Z
 Mode: LOCAL DEMO only — `MEMWAL_MODE=local`, file-backed stand-in memory (`.local-memory.json`), no keys (`OPENROUTER_API_KEY` unset, no `MEMWAL_*` keys), Node v22.14.0, app server `src/server.js` on `PORT=3002` (to avoid clashes). No Mainnet, no real Walrus blobs — all blob IDs below are `local-*` LOCAL DEMO stand-ins.
 
 Method:
-1. Started server: `MEMWAL_MODE=local PORT=3002 node src/server.js` (cwd `walrus-session8/app`); verified `GET /healthz` → `{"ok":true,"mode":"local"}`.
+1. Started server: `MEMWAL_MODE=local PORT=3002 node src/server.js` (from `app/`); verified `GET /healthz` → `{"ok":true,"mode":"local"}`.
 2. Phase 1 — 50 sequential `POST /api/chat` (mixed teaches + questions, 5 userIds `load-u1..u5`, alternating teach/question), timed wall clock per request with Python `urllib` (`time.perf_counter`), counted non-200s.
 3. Phase 2 — 10 rapid teaches to ONE user (`load-burst1`), then recall check via `POST /api/chat "What meds does mom take?"` + `GET /api/summary?user=load-burst1` + `GET /memory?user=load-burst1`; repeat 10-teach burst on `load-burst-p95` for burst p95. Checked dedup (duplicate teach → same `local-*` blob, unique count) and ordering (meds query ranks meds first).
 4. Phase 3 — `GET /healthz`, `/api/summary?user=load-u1`, `/memory?user=load-u1`, `/demo`, `/demo?persona=day7` ×5 each, counted non-200s, timed avg/p95 (p95 = `ceil(0.95*n)`-th sorted sample; for n=5 p95 = max).

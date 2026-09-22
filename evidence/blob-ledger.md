@@ -1,12 +1,12 @@
 # Blob ledger (append-only) — proof of ≥10 Mainnet blobs
 
-Agent ID (MEMWAL_ACCOUNT_ID): _fill after memory.walrus.xyz → Create Account_
+Agent ID (MEMWAL_ACCOUNT_ID): 0x8c66ca90cc9b282f028df78dee53a89416db780dae0bc9879f605324bdbbb783
 Namespace pattern: `user-<id>` (e.g. `user-demo-mom`)
-Ledger rule: every `rememberAndWait` result appended here with walruscan link. DeepSurge form needs agent ID + count.
+Ledger rule: every `rememberAndWait` result is appended here with its walruscan link, so the agent ID and blob count can be verified publicly.
 
 Status: **13 blobs live on Mainnet** (12 seeded Sept 21 + 1 taught live in chat). Every link below was either captured from a tool response or re-verified via live recall — never inferred. One wrong transcription (Metformin, caught Sept 22) was corrected after re-verification.
 
-## 2026-09-21T12:00Z — MAINNET VERIFIED (first real blobs, owner keys via ~/.memwal)
+## 2026-09-21T12:00Z — first blobs verified on Mainnet
 Agent (MEMWAL_ACCOUNT_ID): 0x8c66ca90cc9b282f028df78dee53a89416db780dae0bc9879f605324bdbbb783
 Namespace: user-demo-mom (plus user-verify-probe probe)
 Wallet: 0x6041ad2ec9a6a086082b8aa27d9e300adf3103c066019600efa28bb5d2d78597

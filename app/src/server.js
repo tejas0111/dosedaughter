@@ -4,7 +4,7 @@
 // POST /api/chat { userId, message } → recall → LLM → auto-remember facts.
 // GET /api/summary?user=ID → doctor-visit summary compiled from recall only.
 // Memory backend: MEMWAL_MODE=mainnet (real Walrus Memory, needs keys) or local (default,
-// file-backed stand-in with identical interface for tonight's end-to-end demo — NEVER mainnet).
+// file-backed stand-in with identical interface for offline development and demos).
 import 'dotenv/config';
 import express from 'express';
 import { createClient, namespaceFor, recallRelevant, recallAll, buildSystemPrompt, rememberAndWait, shouldRemember, findConflict, classifyFacts } from './memory.js';
