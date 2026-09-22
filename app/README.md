@@ -72,6 +72,7 @@ print(post("/api/chat", {"userId": "demo-mom", "message": "What meds does mom ta
 ## File map
 
 - `src/server.js` — Express app: 6 routes, recall → coded allergy guard → LLM → gated auto-save flow (exports `app`; listens only when run directly).
+- `src/page.js` — Server-rendered pages (chat widget, `/memory` receipts, `/demo` before/after) — no build step, all dynamic text escaped.
 - `src/memory.js` — MemWal wrapper: namespaces, `shouldRemember` write gate, `findConflict` allergy guard, 500-byte cap, `MAX_DISTANCE=0.7` recall filter, system prompt.
 - `src/localClient.js` — File-backed stand-in (same interface, `.local-memory.json`, `local-*` ids) for keyless demo.
 - `src/telegram.js` — Polling Telegram bot (`/start /memory /summary /reset`), per-chat `user-tg-<chatId>` namespace.

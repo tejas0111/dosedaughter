@@ -9,6 +9,7 @@ import 'dotenv/config';
 import express from 'express';
 import { createClient, namespaceFor, recallRelevant, recallAll, buildSystemPrompt, rememberAndWait, shouldRemember, findConflict, classifyFacts } from './memory.js';
 import { createLocalClient } from './localClient.js';
+import { chatPage, memoryPage, demoPage } from './page.js';
 
 const MODE = process.env.MEMWAL_MODE === 'mainnet' ? 'mainnet' : 'local';
 function clientFor(userId) {
@@ -111,28 +112,17 @@ app.get('/memory', async (req, res) => {
       'dinner bedtime routine',
       'daughter doctor pharmacy emergency contact',
     ], 25);
-    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    const isLocal = (id) => String(id || '').startsWith('local-');
-    const rows = recalled.map((r) => {
-      const badge = r.blob_id
-        ? (isLocal(r.blob_id) || mode === 'local'
-            ? `<code>LOCAL DEMO ${esc(r.blob_id)}</code>`
-            : `<a href="https://walruscan.com/mainnet/blob/${esc(r.blob_id)}">${esc(String(r.blob_id).slice(0, 12))}…</a>`)
-        : '';
-      return `<li>${esc(r.text)} ${badge}</li>`;
-    }).join('');
-    const banner = mode === 'local'
-      ? `<p>LOCAL DEMO — file-backed stand-in memory, not Walrus Mainnet. Real Mainnet path (Walrus Memory) runs when MEMWAL_MODE=mainnet with keys.</p>`
-      : `<p>All memory stored on Walrus Mainnet via Walrus Memory — every fact links to its blob on walruscan. Agent: ${esc(String(process.env.MEMWAL_ACCOUNT_ID || '').slice(0, 10))}…</p>`;
-    res.send(`<h1>DoseDaughter remembers — ${esc(userId)}</h1>${banner}<ul>${rows || '<li>Nothing yet — say hi in chat.</li>'}</ul><p>Confirm with your doctor — this is not medical advice.</p>`);
+    res.send(memoryPage({
+      user: userId,
+      mode,
+      rows: recalled.map((r) => ({ text: r.text, blob_id: r.blob_id })),
+      agentShort: String(process.env.MEMWAL_ACCOUNT_ID || '').slice(0, 10),
+    }));
   } catch (e) { res.status(500).send(`<pre>${String(e.message || e)}</pre>`); }
 });
 
 app.get('/', (req, res) => {
-  res.send(`<h1>DoseDaughter</h1><p>A caregiver chatbot that never re-asks a dose. Memory: ${MODE}${MODE === 'mainnet' ? ' (Walrus Memory on Mainnet)' : ' (offline demo stand-in — Mainnet after seeding, see evidence/blob-ledger.md)'} · LLM ${process.env.LLM_MODEL || 'google/gemini-2.5-flash'}.</p>
-  <form method=GET action=/memory><input name=user placeholder="user id (e.g. demo-mom)"/><button>See what it remembers</button></form>
-  <p>POST /api/chat with {"userId","message"}. Demo: /demo?persona=day1 vs /demo?persona=day7</p>
-  <p><small>Confirm with your doctor — this is not medical advice.</small></p>`);
+  res.send(chatPage({ mode: MODE, model: process.env.LLM_MODEL || 'google/gemini-2.5-flash' }));
 });
 
 app.get('/demo', async (req, res) => {
@@ -143,17 +133,24 @@ app.get('/demo', async (req, res) => {
     const d1 = clientFor('demo-day1');
     const d7 = clientFor('demo-day7');
     const r1 = await recallRelevant(d1.client, q, 5);
-    const r7 = await recallRelevant(d7.client, q, 5);
-    const persona = req.query.persona === 'day7' ? 'day7' : 'day1';
-    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    const fmt = (r, mode) => r.length ? r.map((m) => `<li>${esc(m.text)} <small>(${esc(mode)}:${esc(String(m.blob_id || '').slice(0, 12))})</small></li>`).join('') : '<li><i>no memories — generic answer, Day-1 amnesia</i></li>';
-    const note7 = r7.length ? '' : '<p><i>day7 namespace empty — teach it via POST /api/chat {"userId":"demo-day7",...} then reload.</i></p>';
-    const shown = persona === 'day7' ? r7 : r1;
-    res.send(`<h1>Before/after — ${persona} (LIVE recall, mode ${esc(d7.mode)})</h1>
-    <p><b>Q:</b> "${q}"</p>
-    <p><b>BEFORE (demo-day1, ${r1.length} memories):</b></p><ul>${fmt(r1, d1.mode)}</ul>
-    <p><b>AFTER (demo-day7, ${r7.length} memories):</b></p><ul>${fmt(r7, d7.mode)}</ul>${persona === 'day7' ? note7 : ''}
-    <p>Live proof: POST /api/chat with userId=demo-day7, then reload /demo?persona=day7</p>`);
+    let r7 = await recallRelevant(d7.client, q, 5);
+    // AFTER side: use demo-day7 when populated (local clone-and-run via demo:seed);
+    // on a fresh mainnet deploy fall back to the seeded demo-mom namespace so the
+    // before/after always shows real memories. The page labels whichever is used.
+    let afterNs = 'user-demo-day7';
+    if (r7.length === 0) {
+      const dm = clientFor('demo-mom');
+      const rdm = await recallRelevant(dm.client, q, 5);
+      if (rdm.length > 0) { r7 = rdm; afterNs = 'user-demo-mom'; }
+    }
+    res.send(demoPage({
+      q,
+      mode: d7.mode,
+      before: r1.map((m) => ({ text: m.text, blob_id: m.blob_id })),
+      after: r7.map((m) => ({ text: m.text, blob_id: m.blob_id })),
+      afterNs,
+      day7Empty: r7.length === 0,
+    }));
   } catch (e) { res.status(500).send(`<pre>${String(e.message || e)}</pre>`); }
 });
 
