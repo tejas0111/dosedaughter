@@ -20,6 +20,14 @@ export function createClient({ namespace } = {}) {
   return MemWal.create({ key, accountId, serverUrl: SERVER_URL, namespace: namespace || 'dosedughter-prod' });
 }
 
+// Per-user client: acts AS THE USER via their registered delegate key.
+// Memory written here lands in the user's OWN MemWalAccount (they own it);
+// the app wallet is never involved and holds no access to their namespace.
+export function createDelegateClient({ delegatePrivateKey, accountId, namespace } = {}) {
+  if (!delegatePrivateKey || !accountId) throw new Error('Missing delegate key / account ID for user client');
+  return MemWal.create({ key: delegatePrivateKey, accountId, serverUrl: SERVER_URL, namespace: namespace || 'dosedughter-prod' });
+}
+
 export function truncateFact(text) {
   const s = String(text ?? '');
   if (Buffer.byteLength(s, 'utf8') <= MAX_FACT_BYTES) return s;

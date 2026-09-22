@@ -5,17 +5,34 @@
 // GET /api/summary?user=ID → doctor-visit summary compiled from recall only.
 // Memory backend: MEMWAL_MODE=mainnet (real Walrus Memory, needs keys) or local (default,
 // file-backed stand-in with identical interface for offline development and demos).
+// Wallet identity: visitors sign in with a Sui wallet (signature verified, HMAC
+// session cookie); onboarded users get a per-user MemWal delegate client so chat
+// memory lands in THEIR OWN MemWalAccount (they own it; app wallet never touched).
 import 'dotenv/config';
 import express from 'express';
 import { createClient, namespaceFor, recallRelevant, recallAll, buildSystemPrompt, rememberAndWait, shouldRemember, findConflict, classifyFacts } from './memory.js';
 import { createLocalClient } from './localClient.js';
 import { chatPage, memoryPage, demoPage } from './page.js';
+import { AUTH_MESSAGE, verifyWalletSignature, issueSession, sessionFromReq, sessionCookie, clearCookie } from './walletAuth.js';
+import { walletStatus, prepareCreateAccount, prepareLinkDelegate, completeOnboarding, relinkExisting } from './onboarding.js';
+import { createDelegateClient } from './memory.js';
+import { getUser } from './userRegistry.js';
 
 const MODE = process.env.MEMWAL_MODE === 'mainnet' ? 'mainnet' : 'local';
 function clientFor(userId) {
   const ns = namespaceFor(userId);
   if (MODE === 'mainnet') return { client: createClient({ namespace: ns }), mode: 'mainnet' };
   return { client: createLocalClient({ namespace: ns }), mode: 'local' };
+}
+
+// Wallet-authenticated user → their own MemWal account via delegate key.
+// Returns null when the visitor is not signed in / not onboarded (caller falls
+// back to the anonymous channel — honest, never silently mixed).
+function userClientFor(address) {
+  const user = getUser(address);
+  if (!user?.accountId || !user?.delegatePrivateKey) return null;
+  const ns = namespaceFor(`w-${address.slice(0, 10)}`);
+  return { client: createDelegateClient({ delegatePrivateKey: user.delegatePrivateKey, accountId: user.accountId, namespace: ns }), ns };
 }
 
 const app = express();
@@ -54,7 +71,15 @@ async function callLLM(system, userMessage) {
 app.post('/api/chat', async (req, res) => {
   try {
     const { userId = 'anon', message = '' } = req.body;
-    const { client, mode } = clientFor(userId);
+    // Identity: signed-in onboarded wallet user → their OWN MemWal account
+    // (delegate client). Everyone else → the shared anonymous channel
+    // (agent account on mainnet / local stand-in in dev). Never mixed.
+    const sess = sessionFromReq(req);
+    const walletClient = sess ? userClientFor(sess.address) : null;
+    const identity = walletClient ? { kind: 'wallet-owner', address: sess.address, ns: walletClient.ns } : { kind: 'shared-anon', ns: namespaceFor(userId) };
+    const client = walletClient?.client || clientFor(userId).client;
+    const label = walletClient ? `User ${sess.address.slice(0, 10)}…` : `User ${userId}`;
+
     const recalled = await recallRelevant(client, message, 5);
     // Coded safety net FIRST: allergy conflict blocks before any LLM output.
     const conflict = findConflict(message, recalled);
@@ -68,9 +93,18 @@ app.post('/api/chat', async (req, res) => {
     // Auto-save AFTER generation only: shouldRemember gates writes (never chit-chat).
     let saved = null;
     if (shouldRemember(message)) {
-      try { saved = await rememberAndWait(client, `User ${userId}: ${message}`); } catch { /* queue later */ }
+      try { saved = await rememberAndWait(client, `${label}: ${message}`); } catch { /* queue later */ }
     }
-    res.json({ reply, recalled: recalled.map((r) => r.text), savedBlob: saved?.blob_id || null, mode, disclaimer: 'Confirm with your doctor — this is not medical advice.' });
+    res.json({
+      reply,
+      recalled: recalled.map((r) => r.text),
+      recalledMeta: recalled.map((r) => ({ text: r.text, blob_id: r.blob_id || null, distance: r.distance ?? null })),
+      memoryScope: identity.ns,
+      identity: identity.kind,
+      savedBlob: saved?.blob_id || null,
+      mode: walletClient ? 'mainnet' : (MODE === 'mainnet' ? 'mainnet' : 'local'),
+      disclaimer: 'Confirm with your doctor — this is not medical advice.',
+    });
   } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
 });
 
@@ -103,8 +137,12 @@ app.get('/api/summary', async (req, res) => {
 
 app.get('/memory', async (req, res) => {
   try {
-    const userId = req.query.user || 'demo-mom';
-    const { client, mode } = clientFor(userId);
+    // A signed-in onboarded wallet user sees THEIR OWN vault; everyone else
+    // sees the requested (or default demo) namespace.
+    const sess = sessionFromReq(req);
+    const mine = sess ? userClientFor(sess.address) : null;
+    const userId = mine ? mine.ns.replace(/^user-/, '') : (req.query.user || 'demo-mom');
+    const { client, mode } = mine ? { client: mine.client, mode: 'mainnet' } : clientFor(userId);
     const recalled = await recallAll(client, [
       'medications allergies routine family',
       'takes dose mg pill',
@@ -113,10 +151,10 @@ app.get('/memory', async (req, res) => {
       'daughter doctor pharmacy emergency contact',
     ], 25);
     res.send(memoryPage({
-      user: userId,
+      user: mine ? `${sess.address.slice(0, 10)}… (your vault)` : userId,
       mode,
       rows: recalled.map((r) => ({ text: r.text, blob_id: r.blob_id })),
-      agentShort: String(process.env.MEMWAL_ACCOUNT_ID || '').slice(0, 10),
+      agentShort: mine ? null : String(process.env.MEMWAL_ACCOUNT_ID || '').slice(0, 10),
     }));
   } catch (e) { res.status(500).send(`<pre>${String(e.message || e)}</pre>`); }
 });
@@ -152,6 +190,75 @@ app.get('/demo', async (req, res) => {
       day7Empty: r7.length === 0,
     }));
   } catch (e) { res.status(500).send(`<pre>${String(e.message || e)}</pre>`); }
+});
+
+// ---------------- wallet identity + per-user memory ----------------
+// Sign-in: the browser asks the wallet to sign a FIXED personal message; we
+// verify the signature server-side and set an HMAC session cookie. No fee.
+app.get('/api/auth/message', (req, res) => res.json({ message: AUTH_MESSAGE }));
+
+app.post('/api/auth/verify', async (req, res) => {
+  try {
+    const { address, signature } = req.body || {};
+    const ok = await verifyWalletSignature({ address, signature });
+    if (!ok) return res.status(401).json({ error: 'signature verification failed' });
+    res.setHeader('Set-Cookie', sessionCookie(issueSession(ok.address)));
+    res.json({ ok: true, address: ok.address });
+  } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  res.setHeader('Set-Cookie', clearCookie());
+  res.json({ ok: true });
+});
+
+app.get('/api/wallet/status', async (req, res) => {
+  try {
+    const sess = sessionFromReq(req);
+    if (!sess) return res.json({ signedIn: false });
+    const status = await walletStatus(sess.address);
+    res.json({ signedIn: true, ...status });
+  } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
+});
+
+// Onboarding step 1a (fresh users): tx bytes for create_account.
+app.post('/api/wallet/onboard/create', async (req, res) => {
+  try {
+    const sess = sessionFromReq(req);
+    if (!sess) return res.status(401).json({ error: 'sign in first' });
+    res.json(await prepareCreateAccount(sess.address));
+  } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
+});
+
+// Onboarding step 1b (fresh users after tx 1; existing users): link delegate.
+app.post('/api/wallet/onboard/link', async (req, res) => {
+  try {
+    const sess = sessionFromReq(req);
+    if (!sess) return res.status(401).json({ error: 'sign in first' });
+    res.json(await prepareLinkDelegate(sess.address));
+  } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
+});
+
+// Onboarding step 2: submit the visitor-signed transaction.
+app.post('/api/wallet/onboard/complete', async (req, res) => {
+  try {
+    const sess = sessionFromReq(req);
+    if (!sess) return res.status(401).json({ error: 'sign in first' });
+    const { signature } = req.body || {};
+    if (typeof signature !== 'string' || signature.length < 50) return res.status(400).json({ error: 'missing signature' });
+    res.json(await completeOnboarding(sess.address, signature));
+  } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
+});
+
+// Recovery: re-link an account that exists onchain but is missing locally.
+app.post('/api/wallet/relink', async (req, res) => {
+  try {
+    const sess = sessionFromReq(req);
+    if (!sess) return res.status(401).json({ error: 'sign in first' });
+    const out = await relinkExisting(sess.address);
+    if (!out) return res.status(404).json({ error: 'no account found onchain for this address' });
+    res.json({ ok: true, ...out });
+  } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
 });
 
 const port = process.env.PORT || 3001;

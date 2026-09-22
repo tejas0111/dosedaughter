@@ -75,6 +75,19 @@ ul.receipts .bid.loc{color:var(--amber)}
 .dcard.before h3{color:var(--red)}
 .dcard.after h3{color:var(--green)}
 .qline{background:var(--teal-soft);border-radius:10px;padding:10px 14px;font-weight:600;margin:14px 0}
+/* wallet auth bar */
+.authbar{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin-top:18px;flex-wrap:wrap}
+.authbar .who2{font-size:13px;color:var(--mut)}
+.authbar .who2 b{color:var(--ink)}
+.authbar a.vault{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--teal);word-break:break-all}
+.btn.connect{background:var(--ink);color:#fff}
+.obsteps{display:none;margin-top:10px;font-size:13px}
+.obsteps.on{display:block}
+.obsteps .step{padding:6px 10px;border-radius:8px;margin-bottom:6px;border:1px solid var(--line);color:var(--mut)}
+.obsteps .step.active{border-color:var(--teal);color:var(--teal-dk);font-weight:600}
+.obsteps .step.done{border-color:#bbf7d0;background:var(--green-soft);color:var(--green)}
+.obsteps .step.err{border-color:#fecaca;background:var(--red-soft);color:var(--red)}
+.signin-note{font-size:12.5px;color:var(--mut);margin:8px 0 0;line-height:1.5}
 `;
 
 const TOP = (title, mode, active) => `<!doctype html><html lang="en"><head><meta charset="utf-8">
@@ -97,6 +110,13 @@ const FOOT = (mode, userId) => `<footer class="foot">
 export function chatPage({ mode, model }) {
   return TOP('DoseDaughter — chat', mode) + `
 <div class="wrap">
+  <div class="authbar" id="authbar">
+    <span class="who2" id="who2">Checking wallet&hellip;</span>
+    <button class="btn connect" id="connect" style="display:none">Connect Sui Wallet</button>
+    <a class="vault" id="vaultlink" style="display:none" target="_blank" rel="noopener"></a>
+  </div>
+  <div class="obsteps" id="obsteps"></div>
+  <p class="signin-note" id="signnote">Your Sui wallet is your sign-in. Once connected, your memories live in <b>your own</b> on-chain vault (a MemWal account you create &amp; own) and DoseDaughter reads it with a delegate key you granted &mdash; revocable on the <a href="https://memory.walrus.xyz" target="_blank" rel="noopener">Walrus Memory dashboard</a>. Signature only &mdash; the sign-in itself costs nothing.</p>
   <div class="panel" style="margin-top:18px">
     <div id="log">
       <div class="card"><div class="reply">Hi &#8212; I'm DoseDaughter. Teach me about the person you care for (meds, allergies, routines). I'll remember across sessions on Walrus${mode === 'mainnet' ? ' Mainnet' : ''} &#8212; and I'll show you every receipt.</div></div>
@@ -109,7 +129,7 @@ export function chatPage({ mode, model }) {
       <button data-msg="Can she take ibuprofen for her headache?">Allergy trap &#9888;</button>
     </div>
     <div class="inputrow">
-      <input class="who" id="who" placeholder="user id" value="demo-mom" spellcheck="false">
+      <input class="who" id="who" placeholder="user id (no wallet? shared demo channel)" value="demo-mom" spellcheck="false">
       <input id="text" placeholder="Say something&hellip; (Enter to send)" autocomplete="off">
       <button class="btn" id="send">Send</button>
     </div>
@@ -199,6 +219,126 @@ export function chatPage({ mode, model }) {
   Array.prototype.forEach.call(document.querySelectorAll('.quick button[data-msg]'), function(b){
     b.addEventListener('click', function(){ go(b.getAttribute('data-msg')); });
   });
+})();
+
+// ---------- wallet identity + onboarding (Wallet Standard, no build step) ----------
+(function(){
+  var who2 = document.getElementById('who2');
+  var btn = document.getElementById('connect');
+  var vault = document.getElementById('vaultlink');
+  var ob = document.getElementById('obsteps');
+  var signnote = document.getElementById('signnote');
+  var whoInput = document.getElementById('who');
+  var wallet = null, account = null, address = null;
+
+  function $(id){ return document.getElementById(id); }
+  function short(s){ return s ? String(s).slice(0, 6) + '\u2026' + String(s).slice(-4) : ''; }
+  function b64ToBytes(b64){ var bin = atob(b64); var u = new Uint8Array(bin.length); for (var i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i); return u; }
+  function bytesToB64(u){ var s=''; for (var i=0;i<u.length;i+=0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i+0x8000)); return btoa(s); }
+  function post(url, body){ return fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: body ? JSON.stringify(body) : undefined }).then(function(r){ return r.json(); }); }
+
+  function stepList(names){ ob.className='obsteps on'; ob.innerHTML=''; names.forEach(function(n){ var d=document.createElement('div'); d.className='step'; d.textContent=n; ob.appendChild(d); }); }
+  function stepMark(i, cls, text){ var d = ob.children[i]; if (!d) return; d.className='step '+cls; if (text) d.textContent = text; }
+  function stepErr(i, e){ stepMark(i, 'err', 'Failed: ' + (e && e.error ? e.error : (e && e.message) ? e.message : String(e))); }
+
+  function setSignedOut(){
+    who2.textContent = 'Not signed in \u2014 using the shared demo channel';
+    btn.textContent = 'Connect Sui Wallet'; btn.style.display='';
+    vault.style.display='none';
+  }
+  function setSignedIn(st){
+    address = st.address;
+    who2.innerHTML = '';
+    who2.appendChild(document.createTextNode('Signed in as '));
+    var b = document.createElement('b'); b.textContent = short(st.address); who2.appendChild(b);
+    if (st.onboarded){
+      btn.style.display='none'; signnote.style.display='none';
+      vault.href = 'https://suiscan.xyz/mainnet/account/' + st.accountId;
+      vault.textContent = 'vault ' + short(st.accountId) + ' \u2197'; vault.style.display='';
+      whoInput.disabled = true; whoInput.value = 'my vault (wallet)';
+    } else {
+      btn.style.display=''; btn.textContent = st.needsRelink ? 'Re-link my vault' : 'Create my memory vault';
+    }
+  }
+
+  function getWallets(){ try { return (window.getWallets ? window.getWallets() : []) || []; } catch(e){ return []; } }
+  function pickWallet(){
+    var ws = getWallets();
+    for (var i=0;i<ws.length;i++){ var f = ws[i].features || {}; if (f['standard:connect'] && (f['sui:signPersonalMessage'] || f['sui:signTransactionBlock'] || f['standard:signTransaction'])) return ws[i]; }
+    return ws[0] || null;
+  }
+  async function ensureConnected(w){
+    if (account) return account;
+    var conn = await w.features['standard:connect'].connect();
+    account = (conn.accounts || [])[0] || null;
+    if (!account) throw { message: 'wallet returned no account' };
+    return account;
+  }
+  async function signTx(w, acct, bytes){
+    var f = w.features || {};
+    if (f['standard:signTransaction']){ var r1 = await f['standard:signTransaction'].signTransaction({ transaction: { bytes: bytes, chain: 'sui:mainnet' }, account: acct, chain: 'sui:mainnet' }); return r1.signature; }
+    if (f['sui:signTransactionBlock']){ var r2 = await f['sui:signTransactionBlock'].signTransactionBlock({ transactionBlockBytes: bytes, account: acct, chain: 'sui:mainnet' }); return r2.signature; }
+    throw { message: 'wallet cannot sign transactions' };
+  }
+  async function signMsg(w, acct, msgBytes){
+    var f = w.features || {};
+    if (f['sui:signPersonalMessage']){ var r = await f['sui:signPersonalMessage'].signPersonalMessage({ message: msgBytes, account: acct }); return r.signature; }
+    throw { message: 'wallet cannot sign personal messages' };
+  }
+  function utf8(s){ return new TextEncoder().encode(s); }
+
+  btn.addEventListener('click', async function(){
+    try {
+      var w = pickWallet();
+      if (!w){ alert('No Sui wallet detected. Install Sui Wallet / Slush / Nightly, then reload.'); return; }
+      var acct = await ensureConnected(w);
+      var status = await fetch('/api/wallet/status').then(function(r){ return r.json(); });
+      if (!status.signedIn){
+        // Step 0: prove address ownership (free signature) \u2192 session cookie.
+        var m = await fetch('/api/auth/message').then(function(r){ return r.json(); });
+        var sig = await signMsg(w, acct, utf8(m.message));
+        var v = await post('/api/auth/verify', { address: acct.address, signature: sig });
+        if (v.error) throw v;
+        status = await fetch('/api/wallet/status').then(function(r){ return r.json(); });
+      }
+      if (status.onboarded){ setSignedIn(status); return; }
+      await runOnboarding(w, acct, !status.needsRelink);
+    } catch(e){ alert('Wallet error: ' + (e && e.message ? e.message : String(e))); }
+  });
+
+  async function runOnboarding(w, acct, needsCreate){
+    var names = needsCreate ? ['Create your vault (sign in wallet \u2014 you pay gas)', 'Link DoseDaughter (second signature)', 'Done \u2014 your memories, your account'] : ['Link DoseDaughter (sign in wallet)', 'Done \u2014 your memories, your account'];
+    stepList(names);
+    try {
+      var i = 0;
+      if (needsCreate){
+        stepMark(0, 'active', 'Preparing transaction\u2026');
+        var p = await post('/api/wallet/onboard/create');
+        if (p.error) throw p;
+        stepMark(0, 'active', 'Waiting for your signature\u2026');
+        var s1 = await signTx(w, acct, b64ToBytes(p.txBytesBase64));
+        var c1 = await post('/api/wallet/onboard/complete', { signature: s1 });
+        if (c1.error) throw c1;
+        stepMark(0, 'done', 'Vault created \u2713 ' + short(c1.accountId));
+        i = 1;
+      }
+      stepMark(i, 'active', 'Preparing link transaction\u2026');
+      var pl = await post('/api/wallet/onboard/link');
+      if (pl.error) throw pl;
+      stepMark(i, 'active', 'Waiting for your signature\u2026');
+      var s2 = await signTx(w, acct, b64ToBytes(pl.txBytesBase64));
+      var c2 = await post('/api/wallet/onboard/complete', { signature: s2 });
+      if (c2.error) throw c2;
+      stepMark(i, 'done', 'DoseDaughter linked \u2713');
+      stepMark(i+1, 'done', 'Your memories now live in your own on-chain vault');
+      var st = await fetch('/api/wallet/status').then(function(r){ return r.json(); });
+      setTimeout(function(){ setSignedIn(st); ob.className='obsteps'; }, 2500);
+    } catch(e){ stepErr(needsCreate ? 0 : 0, e); }
+  }
+
+  fetch('/api/wallet/status').then(function(r){ return r.json(); }).then(function(j){
+    if (j && j.signedIn) setSignedIn(j); else setSignedOut();
+  }).catch(setSignedOut);
 })();
 </` + `script>` + FOOT(mode) + `</body></html>`;
 }
