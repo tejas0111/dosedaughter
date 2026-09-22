@@ -73,7 +73,10 @@ export async function prepareLinkDelegate(address) {
   const tx = buildLinkDelegateTx(address, accountId, delegatePublicKey);
   const bytes = await tx.build({ client: buildClient() });
   const txBytesBase64 = Buffer.from(bytes).toString('base64');
-  upsertUser({ address, pendingPhase: 'link', pendingTxBytes: txBytesBase64 });
+  // Persist the account id with the pending phase: if the user signs but
+  // closes the tab before completion, the next visit finds the account id
+  // locally instead of re-discovering it via events.
+  upsertUser({ address, accountId, pendingPhase: 'link', pendingTxBytes: txBytesBase64 });
   return { txBytesBase64, accountId };
 }
 

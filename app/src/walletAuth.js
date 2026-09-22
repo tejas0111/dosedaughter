@@ -56,9 +56,10 @@ export function readSession(token) {
   }
 }
 
-// Cookie helpers (no cookie-parser dependency needed).
-export function sessionCookie(token) {
-  return `dd_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}`;
+// Cookie helpers (no cookie-parser dependency needed). Secure flag when the
+// request is https (direct or behind a proxy) — sessions work on http localhost.
+export function sessionCookie(token, { secure = false } = {}) {
+  return `dd_session=${token}; Path=/; HttpOnly; SameSite=Lax;${secure ? ' Secure;' : ''} Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}`;
 }
 export function clearCookie() {
   return 'dd_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0';

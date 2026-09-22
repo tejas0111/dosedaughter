@@ -88,6 +88,7 @@ ul.receipts .bid.loc{color:var(--amber)}
 .obsteps .step.done{border-color:#bbf7d0;background:var(--green-soft);color:var(--green)}
 .obsteps .step.err{border-color:#fecaca;background:var(--red-soft);color:var(--red)}
 .signin-note{font-size:12.5px;color:var(--mut);margin:8px 0 0;line-height:1.5}
+.scope{font-size:11px;color:var(--mut);margin-top:8px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 `;
 
 const TOP = (title, mode, active) => `<!doctype html><html lang="en"><head><meta charset="utf-8">
@@ -185,8 +186,14 @@ export function chatPage({ mode, model }) {
   }
   function addDisclaimer(c){
     var d = document.createElement('div'); d.className = 'disclaim';
-    d.textContent = 'Confirm with your doctor \\u2014 this is not medical advice.';
+  d.textContent = 'Confirm with your doctor \\u2014 this is not medical advice.';
     c.appendChild(d);
+  }
+  function addScope(c, identity, scope){
+    if (!identity || !scope) return;
+    var s = document.createElement('div'); s.className = 'scope';
+    s.textContent = (identity === 'wallet-owner' ? '\u{1F512} your vault \u00b7 ' : '\u{1F465} shared demo channel \u00b7 ') + scope;
+    c.appendChild(s);
   }
   function scroll(){ log.scrollTop = log.scrollHeight; }
   function busy(b){ typing.className = 'typing' + (b ? ' on' : ''); send.disabled = b; }
@@ -207,6 +214,7 @@ export function chatPage({ mode, model }) {
       addChips(c, res.j.recalled);
       addToast(c, res.j.savedBlob, res.j.mode);
       addDisclaimer(c);
+      addScope(c, res.j.identity, res.j.memoryScope);
       log.appendChild(c); scroll();
     })
     .catch(function(err){ busy(false); var e = card('Network error: ' + err, 'stop'); log.appendChild(e); scroll(); });

@@ -17,6 +17,7 @@ import { AUTH_MESSAGE, verifyWalletSignature, issueSession, sessionFromReq, sess
 import { walletStatus, prepareCreateAccount, prepareLinkDelegate, completeOnboarding, relinkExisting } from './onboarding.js';
 import { createDelegateClient } from './memory.js';
 import { getUser } from './userRegistry.js';
+import { limiter, clientIp } from './rateLimit.js';
 
 const MODE = process.env.MEMWAL_MODE === 'mainnet' ? 'mainnet' : 'local';
 function clientFor(userId) {
@@ -36,7 +37,24 @@ function userClientFor(address) {
 }
 
 const app = express();
-app.use(express.json());
+// Security headers on every response. CSP allows inline scripts (the UI is
+// server-rendered, no build step) but blocks every external origin.
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'");
+  next();
+});
+// 16 KB JSON bodies — chat messages and tx signatures are tiny; anything
+// larger is abuse. (Express's json parser rejects oversize with 413.)
+app.use(express.json({ limit: '16kb' }));
+
+// Rate limits (fixed-window, per IP).
+const authLimiter = limiter({ keyFn: (req) => `auth:${clientIp(req)}`, limit: 10, windowMs: 60_000 });
+const onboardLimiter = limiter({ keyFn: (req) => `ob:${clientIp(req)}`, limit: 12, windowMs: 60_000 });
+const chatLimiter = limiter({ keyFn: (req) => `chat:${clientIp(req)}`, limit: 30, windowMs: 60_000 });
 
 async function callLLM(system, userMessage) {
   // OpenRouter (Gemini Flash default — Beyond Big Two eligible). Falls back to echo if no key.
@@ -68,9 +86,15 @@ async function callLLM(system, userMessage) {
   return `[LLM unavailable — memory still works] recalled ${system.length} chars of context. You said: ${userMessage}`;
 }
 
-app.post('/api/chat', async (req, res) => {
+app.post('/api/chat', chatLimiter, async (req, res) => {
   try {
     const { userId = 'anon', message = '' } = req.body;
+    if (typeof message !== 'string' || !message.trim() || message.length > 500) {
+      return res.status(400).json({ error: 'message must be 1-500 chars' });
+    }
+    if (typeof userId !== 'string' || userId.length > 64) {
+      return res.status(400).json({ error: 'userId too long' });
+    }
     // Identity: signed-in onboarded wallet user → their OWN MemWal account
     // (delegate client). Everyone else → the shared anonymous channel
     // (agent account on mainnet / local stand-in in dev). Never mixed.
@@ -197,12 +221,13 @@ app.get('/demo', async (req, res) => {
 // verify the signature server-side and set an HMAC session cookie. No fee.
 app.get('/api/auth/message', (req, res) => res.json({ message: AUTH_MESSAGE }));
 
-app.post('/api/auth/verify', async (req, res) => {
+app.post('/api/auth/verify', authLimiter, async (req, res) => {
   try {
     const { address, signature } = req.body || {};
     const ok = await verifyWalletSignature({ address, signature });
     if (!ok) return res.status(401).json({ error: 'signature verification failed' });
-    res.setHeader('Set-Cookie', sessionCookie(issueSession(ok.address)));
+    const secure = req.secure || req.headers['x-forwarded-proto'] === 'https';
+    res.setHeader('Set-Cookie', sessionCookie(issueSession(ok.address), { secure }));
     res.json({ ok: true, address: ok.address });
   } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
 });
@@ -222,7 +247,7 @@ app.get('/api/wallet/status', async (req, res) => {
 });
 
 // Onboarding step 1a (fresh users): tx bytes for create_account.
-app.post('/api/wallet/onboard/create', async (req, res) => {
+app.post('/api/wallet/onboard/create', onboardLimiter, async (req, res) => {
   try {
     const sess = sessionFromReq(req);
     if (!sess) return res.status(401).json({ error: 'sign in first' });
@@ -231,7 +256,7 @@ app.post('/api/wallet/onboard/create', async (req, res) => {
 });
 
 // Onboarding step 1b (fresh users after tx 1; existing users): link delegate.
-app.post('/api/wallet/onboard/link', async (req, res) => {
+app.post('/api/wallet/onboard/link', onboardLimiter, async (req, res) => {
   try {
     const sess = sessionFromReq(req);
     if (!sess) return res.status(401).json({ error: 'sign in first' });
@@ -240,7 +265,7 @@ app.post('/api/wallet/onboard/link', async (req, res) => {
 });
 
 // Onboarding step 2: submit the visitor-signed transaction.
-app.post('/api/wallet/onboard/complete', async (req, res) => {
+app.post('/api/wallet/onboard/complete', onboardLimiter, async (req, res) => {
   try {
     const sess = sessionFromReq(req);
     if (!sess) return res.status(401).json({ error: 'sign in first' });
@@ -251,7 +276,7 @@ app.post('/api/wallet/onboard/complete', async (req, res) => {
 });
 
 // Recovery: re-link an account that exists onchain but is missing locally.
-app.post('/api/wallet/relink', async (req, res) => {
+app.post('/api/wallet/relink', onboardLimiter, async (req, res) => {
   try {
     const sess = sessionFromReq(req);
     if (!sess) return res.status(401).json({ error: 'sign in first' });

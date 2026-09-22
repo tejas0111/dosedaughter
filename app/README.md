@@ -37,16 +37,35 @@ print(post("/api/chat", {"userId": "demo-mom", "message": "I take Metformin 500m
 print(urllib.request.urlopen(base + "/api/summary?user=demo-mom").read().decode()[:500])
 ```
 
+## Identity model — two channels, one memory story
+
+**Wallet users (full-stack Walrus path).** A visitor signs in with a Sui wallet
+(personal-message signature, verified server-side — free), then creates **their
+own `MemWalAccount` on-chain** and registers DoseDaughter's delegate key — two
+transactions that **they sign and pay for**. After that, every chat memory lands
+in *their* account as Seal-encrypted Walrus blobs; the app wallet never touches
+user data and the grant is revocable from the Walrus Memory dashboard.
+
+**Shared demo channel + Telegram.** Caregivers without wallets use
+`demo-mom` (web) or the Telegram bot (`user-tg-<chatId>` namespaces); memory is
+stored under the app's agent account. Honest labeling everywhere: chat cards
+show which scope answered (`your vault` vs `shared demo channel`), and local
+dev mode is never presented as Mainnet.
+
 ## Endpoints
 
 | Method | Path | Params / body | Returns |
 |---|---|---|---|
 | `GET` | `/` | — | Chat landing HTML + links to `/memory`, `/demo` |
-| `POST` | `/api/chat` | JSON `{userId, message}` | `{reply, recalled[], savedBlob, mode, disclaimer}` — recalls top-5, calls LLM, auto-saves only if `shouldRemember()` |
+| `POST` | `/api/chat` | JSON `{userId, message}` (≤500 chars) | `{reply, recalled[], recalledMeta[], memoryScope, identity, savedBlob, mode, disclaimer}` — recalls top-5, coded allergy guard, LLM, gated auto-save. Signed-in wallet users read/write **their own vault** |
 | `GET` | `/api/summary` | `?user=<id>` (default `demo-mom`) | `{user, mode, medications[], allergies[], routine[], familyAndCare[], blobCount, disclaimer}` from recall only |
-| `GET` | `/memory` | `?user=<id>` | Human-readable HTML memory page with blob badges |
-| `GET` | `/demo` | `?persona=day1\|day7` | LIVE before/after: real recall on empty `demo-day1` vs taught `demo-day7` namespaces |
+| `GET` | `/memory` | `?user=<id>` | HTML memory receipts page (wallet users see their own vault) |
+| `GET` | `/demo` | `?persona=day1\|day7` | LIVE before/after: real recall on empty `demo-day1` vs taught namespace |
 | `GET` | `/healthz` | — | `{ok, mode, time}` for uptime checks and deploy verification |
+| `GET` | `/api/auth/message` · `POST /api/auth/verify` · `POST /api/auth/logout` | wallet sign-in (signature → HMAC session cookie) | rate-limited |
+| `GET` | `/api/wallet/status` | session cookie | `{signedIn, onboarded, needsRelink, accountId}` |
+| `POST` | `/api/wallet/onboard/create` · `/link` · `/complete` | onboarding steps (build tx → wallet signs → submit+verify) | `{txBytesBase64}` / `{stage, accountId, digest}` |
+| `POST` | `/api/wallet/relink` | session cookie | re-links an account that exists onchain but not locally |
 
 ```bash
 curl -X POST localhost:3001/api/chat -H 'Content-Type: application/json' \
@@ -63,7 +82,7 @@ print(post("/api/chat", {"userId": "demo-mom", "message": "What meds does mom ta
 
 | Script | Command | Notes |
 |---|---|---|
-| `npm test` | `node src/selftest.js` | 37 offline checks (namespace/truncate/prompt/write-gate/conflict/fuzz/bulk), no network |
+| `npm test` | `node src/selftest.js && node src/wallet.test.js` | 75 offline checks (core 41 + wallet/auth/crypto/rate-limit 34), no network |
 | `npm run dev` / `npm start` | `node src/server.js` | Web widget on `$PORT` (default 3001) |
 | `npm run demo:seed` | `node src/seed-demo.js` | 3-fact local quickstart for `demo-day7` (no keys); full 12-fact seed = `seed:10` (mainnet) |
 | `npm run seed` / `npm run seed:10` | `node src/seed10.js [userId]` | Writes 12 facts, needs mainnet keys; appends to `evidence/blob-ledger.md` |
@@ -71,12 +90,26 @@ print(post("/api/chat", {"userId": "demo-mom", "message": "What meds does mom ta
 
 ## File map
 
-- `src/server.js` — Express app: 6 routes, recall → coded allergy guard → LLM → gated auto-save flow (exports `app`; listens only when run directly).
+- `src/server.js` — Express app: chat, memory, demo, wallet auth + onboarding routes; recall → coded allergy guard → LLM → gated auto-save flow (exports `app`; listens only when run directly).
 - `src/page.js` — Server-rendered pages (chat widget, `/memory` receipts, `/demo` before/after) — no build step, all dynamic text escaped.
 - `src/memory.js` — MemWal wrapper: namespaces, `shouldRemember` write gate, `findConflict` allergy guard, 500-byte cap, `MAX_DISTANCE=0.7` recall filter, system prompt.
 - `src/localClient.js` — File-backed stand-in (same interface, `.local-memory.json`, `local-*` ids) for keyless demo.
 - `src/telegram.js` — Polling Telegram bot (`/start /memory /summary /reset`), per-chat `user-tg-<chatId>` namespace.
 - `src/seed10.js` — Seeds 12 caregiver facts for one user (mainnet only).
+- `src/walletAuth.js` — Wallet signature verification (`@mysten/sui/verify`) + HMAC session cookies (HttpOnly, SameSite=Lax, Secure on https).
+- `src/onchain.js` — Sui onchain ops via GraphQL: `create_account` / `add_delegate_key` PTBs, `AccountCreated` event lookup, MemWalAccount verification, balance probe. Mainnet package/registry IDs verified on-chain.
+- `src/onboarding.js` — Orchestrates the two-transaction user onboarding (user signs, user pays), verifies owner + delegate on the account object before use.
+- `src/userRegistry.js` — Per-user store: address → `{accountId, delegateKey…}` with **AES-256-GCM encryption at rest** (key derived from `SESSION_SECRET`); fails loudly instead of returning garbage.
+- `src/cryptoUtils.js` / `src/rateLimit.js` — Secret-at-rest crypto; dependency-free fixed-window rate limiter.
+
+## Security posture
+
+- Signatures verified server-side (`verifyPersonalMessageSignature`); the client-supplied address is never trusted — it is re-derived from the verified key.
+- Sessions: HMAC-signed tokens, HttpOnly + SameSite=Lax cookies, Secure flag on https, 7-day expiry; no session store to lose.
+- Delegate private keys encrypted at rest (AES-256-GCM); wrong `SESSION_SECRET` fails closed (null), never garbage.
+- All write surfaces rate-limited per IP (auth 10/min, onboarding 12/min, chat 30/min); JSON bodies capped at 16 KB; chat messages capped at 500 chars.
+- Security headers on every response: CSP (default-src 'none'), nosniff, DENY framing, no-referrer, restrictive Permissions-Policy.
+- Identity separation is enforced server-side: wallet users get a delegate client scoped to their own account; the shared channel is never mixed into their namespace.
 - `src/verify.js` — Mainnet health + write/recall probe.
 - `src/selftest.js` — 37 offline tests (namespace/truncate/prompt/write-gate/conflict/fuzz/bulk regressions).
 - `api/index.js` + `vercel.json` + `DEPLOY.md` — Vercel deploy wiring (serverless entry, rewrites, 5-min guide; prod MUST be mainnet — serverless disk is ephemeral).

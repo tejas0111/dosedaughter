@@ -56,6 +56,58 @@ let built = null;
 try { built = mem.createDelegateClient({ delegatePrivateKey: 'aa', accountId: '0x' + 'ef'.repeat(32) }); } catch { built = null; }
 ok(built && typeof built === 'object', 'createDelegateClient with values constructs a client (lazy validation)');
 
+// --- secret-at-rest encryption (AES-256-GCM) ---
+{
+  const cu = await import('./cryptoUtils.js');
+  process.env.SESSION_SECRET = 'test-secret-123';
+  const enc = cu.encryptSecret('deadbeef00');
+  ok(enc.enc === true && /\/.+\//.test(enc.v.split('.')[2] || '') === false && enc.v.split('.').length === 3, 'encryptSecret emits iv.tag.ct');
+  ok(!JSON.stringify(enc).includes('deadbeef00'), 'ciphertext does not contain plaintext');
+  ok(cu.decryptSecret(enc) === 'deadbeef00', 'decryptSecret roundtrip');
+  const tampered = { enc: true, v: enc.v.slice(0, -2) + 'xx' };
+  let threwT = false;
+  try { cu.decryptSecret(tampered); } catch { threwT = true; }
+  ok(threwT, 'tampered ciphertext throws (GCM auth)');
+  ok(cu.decryptSecret({ enc: false, v: 'plain' }) === 'plain', 'unencrypted rows pass through');
+  ok(cu.decryptSecret('legacy-string') === 'legacy-string', 'legacy plaintext rows pass through');
+  delete process.env.SESSION_SECRET;
+  ok(cu.encryptionEnabled() === false && cu.encryptSecret('x').enc === false, 'no SESSION_SECRET -> honest plaintext mode');
+}
+
+// --- registry encryption at rest ---
+{
+  process.env.SESSION_SECRET = 'test-secret-123';
+  process.env.DD_REGISTRY_PATH = '.wallet-registry.selftest2.json';
+  const reg2 = await import('./userRegistry.js');
+  const addr = '0x' + '99'.repeat(32);
+  reg2.upsertUser({ address: addr, accountId: null, delegatePrivateKey: 'secret-key-hex', delegatePublicKey: 'pub', delegateAddress: '0x' + '22'.repeat(32) });
+  const raw = JSON.parse(fs.readFileSync('.wallet-registry.selftest2.json', 'utf8'));
+  ok(!JSON.stringify(raw).includes('secret-key-hex'), 'registry file does not contain plaintext delegate key');
+  ok(raw.users[addr].keyEncrypted === true, 'registry records keyEncrypted=true');
+  ok(reg2.getUser(addr).delegatePrivateKey === 'secret-key-hex', 'registry decrypts on read');
+  // Restart-simulation: new module instances (serverless cold start) still decrypt.
+  delete process.env.DD_REGISTRY_PATH;
+  const reg3 = await import('./userRegistry.js');
+  process.env.DD_REGISTRY_PATH = '.wallet-registry.selftest2.json';
+  ok(reg3.getUser(addr).delegatePrivateKey === 'secret-key-hex', 'decrypt works across module reload');
+  // Wrong secret must fail LOUDLY (null), never return garbage.
+  process.env.SESSION_SECRET = 'different-secret';
+  ok(reg3.getUser(addr) === null, 'wrong SESSION_SECRET -> null, not garbage');
+  process.env.SESSION_SECRET = 'test-secret-123';
+  fs.unlinkSync('.wallet-registry.selftest2.json');
+  delete process.env.DD_REGISTRY_PATH;
+  delete process.env.SESSION_SECRET;
+}
+
+// --- rate limiter ---
+{
+  const rl = await import('./rateLimit.js');
+  const key = 'test:' + Math.random();
+  ok(rl.rateLimit({ key, limit: 2, windowMs: 1000 }).allowed === true, 'rate limit 1st ok');
+  ok(rl.rateLimit({ key, limit: 2, windowMs: 1000 }).allowed === true, 'rate limit 2nd ok');
+  ok(rl.rateLimit({ key, limit: 2, windowMs: 1000 }).allowed === false, 'rate limit 3rd blocked');
+}
+
 import fs from 'node:fs';
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
